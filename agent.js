@@ -1,35 +1,44 @@
 const validMoves = getValidMoves(player);
-const MAX_DEPTH = 6;
+const MAX_DEPTH = 4;
 let bestScore = -Infinity;
 let bestMove = null;
+const opponent = player === 1 ? 2 : 1
 
 let startWeights = [
-    [70, 20, 50, 50, 50, 50, 20, 70],
-    [20, 0, 50, 50, 50, 50, 0, 20],
-    [50, 50, 50, 50, 50, 50, 50, 50],
-    [50, 50, 50, 50, 50, 50, 50, 50],
-    [50, 50, 50, 50, 50, 50, 50, 50],
-    [50, 50, 50, 50, 50, 50, 50, 50],
-    [20, 0, 50, 50, 50, 50, 0, 20],
-    [70, 20, 50, 50, 50, 50, 20, 70]
+    [90, -15, 10, 5, 5, 10, -15, 90],
+    [-15, -25, -3, -3, -3, -3, -25, -15],
+    [10, -3, 2, 1, 1, 2, -3, 10],
+    [5, -3, 1, 1, 1, 1, -3, 5],
+    [5, -3, 1, 1, 1, 1, -3, 5],
+    [10, -3, 2, 1, 1, 2, -3, 10],
+    [-15, -25, -3, -3, -3, -3, -25, -15],
+    [90, -15, 10, 5, 5, 10, -15, 90]
 ];
 
-function makeRandomMove(validMoves) {
-    const randomIndex = Math.floor(Math.random() * validMoves.length);
-    return validMoves[randomIndex];
+function makeBestMove(validMoves) {
+    for (const move of validMoves) {
+        // Score based on position
+        const positionScore = startWeights[move.row][move.col];
+        
+        if (positionScore > bestScore) {
+            bestScore = positionScore;
+            bestMove = move;
+        }
+    }
+    return bestMove;
 }
 
 // Minimax algorithm
-function minimax(board, depth, alpha, beta, maximizingPlayer, weights) {
+function minimax(board, depth, maximizingPlayer, weights) {
     // Termination condition
     if (depth === 0) {
         // Board evaluation
         let score = 0;
         for (let row = 0; row < BOARD_SIZE; row++) {
             for (let col = 0; col < BOARD_SIZE; col++) {
-                if (board[row][col] === WHITE) {
+                if (board[row][col] === player) {
                     score += weights[row][col];
-                } else if (board[row][col] === BLACK) {
+                } else if (board[row][col] === opponent) {
                     score -= weights[row][col];
                 }
             }
@@ -51,57 +60,48 @@ function minimax(board, depth, alpha, beta, maximizingPlayer, weights) {
     // If no valid moves, pass turn to opponent
     if (currentValidMoves.length === 0) {
         // Recursive call with opponent player
-        return minimax(board, depth - 1, alpha, beta, !maximizingPlayer, weights);
+        return minimax(board, depth - 1, maximizingPlayer === 1 ? 2 : 1, weights);
     }
     
-    if (maximizingPlayer) {
+    if (maximizingPlayer === player) {
         let maxEval = -Infinity;
         for (const move of currentValidMoves) {
-            let new_weights = weights.slice();
-            const boardCopy = board.map(row => [...row]);
+            let new_weights = weights.map(row => row.slice());
+            const boardCopy = board.map(row => row.slice());
             
             // Simulate the move
-            makeSimulatedMove(boardCopy, move.row, move.col, maximizingPlayer, new_weights);
+            makeSimulatedMove(boardCopy, move.row, move.col, opponent, new_weights, depth);
             
             // Recursive evaluation
-            const eval = minimax(boardCopy, depth - 1, alpha, beta, false, new_weights);
+            const eval = minimax(boardCopy, depth - 1, opponent, new_weights);
             maxEval = Math.max(maxEval, eval);
             
-            // Alpha-beta pruning
-            alpha = Math.max(alpha, eval);
-            if (beta <= alpha)
-                break;
         }
         return maxEval;
     } else {
         let minEval = Infinity;
         for (const move of currentValidMoves) {
-            let new_weights = weights.slice();
-            const boardCopy = board.map(row => [...row]);
+            let new_weights = weights.map(row => row.slice());
+            const boardCopy = board.map(row => row.slice());
             
             // Simulate the move
-            makeSimulatedMove(boardCopy, move.row, move.col, !maximizingPlayer, new_weights);
+            makeSimulatedMove(boardCopy, move.row, move.col, player, new_weights, depth);
             
             // Recursive evaluation
-            const eval = minimax(boardCopy, depth - 1, alpha, beta, true, new_weights);
+            const eval = minimax(boardCopy, depth - 1, player, new_weights);
             minEval = Math.min(minEval, eval);
-            
-            // Alpha-beta pruning
-            beta = Math.min(beta, eval);
-            if (beta <= alpha)
-                break;
         }
         return minEval;
     }
 }
 
 // Function to check valid moves for minimax
-function isValidMoveForMinimax(board, row, col, player) {
-    if (board[row][col] !== EMPTY) {
+function isValidMoveForMinimax(board, row, col, maximizingPlayer) {
+    if (board[row][col] !== 0) {
         return false;
     }
     
-    const opponent = player === 1 ? 2 : 1;
+    const minimizingPlayer = maximizingPlayer === 1 ? 2 : 1;
     const directions = [
         [-1, -1], [-1, 0], [-1, 1],
         [0, -1],           [0, 1],
@@ -113,13 +113,13 @@ function isValidMoveForMinimax(board, row, col, player) {
         let c = col + dc;
         let foundOpponent = false;
         
-        while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === opponent) {
+        while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === minimizingPlayer) {
             foundOpponent = true;
             r += dr;
             c += dc;
         }
         
-        if (foundOpponent && r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === player) {
+        if (foundOpponent && r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === maximizingPlayer) {
             return true;
         }
     }
@@ -128,8 +128,8 @@ function isValidMoveForMinimax(board, row, col, player) {
 }
 
 // Function to simulate moves for minimax
-function makeSimulatedMove(board, row, col, player, weights) {
-    board[row][col] = player;
+function makeSimulatedMove(board, row, col, maximizingPlayer, weights, depth) {
+    board[row][col] = maximizingPlayer;
     
     // Flip discs
     const directions = [
@@ -143,16 +143,18 @@ function makeSimulatedMove(board, row, col, player, weights) {
         let c = col + dc;
         const discsToFlip = [];
         
-        while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] !== EMPTY && board[r][c] !== player) {
+        while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] !== 0 && board[r][c] !== maximizingPlayer) {
             discsToFlip.push([r, c]);
             r += dr;
             c += dc;
         }
         
-        if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === player) {
+        if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === maximizingPlayer) {
             discsToFlip.forEach(([fr, fc]) => {
-                board[fr][fc] = player;
-                weights[fr][fc] -= 20;
+                board[fr][fc] = maximizingPlayer;
+                if (maximizingPlayer === opponent){
+                    weights[fr][fc] -= (MAX_DEPTH - depth);
+                }
             });
         }
     });
@@ -161,13 +163,13 @@ function makeSimulatedMove(board, row, col, player, weights) {
 // Run minimax algorithm for each valid move
 for (const move of validMoves) {
     // Copy the board
-    const boardCopy = board.map(row => [...row]);
+    const boardCopy = board.map(row => row.slice());
     
     // Simulate the move
-    makeSimulatedMove(boardCopy, move.row, move.col, WHITE, startWeights);
+    makeSimulatedMove(boardCopy, move.row, move.col, player, startWeights, MAX_DEPTH);
     
     // Get minimax evaluation
-    const score = minimax(boardCopy, MAX_DEPTH, -Infinity, Infinity, false, startWeights);
+    const score = minimax(boardCopy, MAX_DEPTH, player, startWeights);
     
     // Update best score
     if (score > bestScore) {
@@ -176,4 +178,4 @@ for (const move of validMoves) {
     }
 }
 
-return bestMove || makeRandomMove(validMoves);
+return bestMove || makeBestMove(validMoves);
